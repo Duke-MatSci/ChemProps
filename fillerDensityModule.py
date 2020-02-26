@@ -1,18 +1,11 @@
 # adapted from filler_test.py by Sean Xiao
 # Bingyin Hu, 03/25/2019
+# Bingyin Hu, 11/12/2019 updated to python3
 
 import requests
 from bs4 import BeautifulSoup
 import re
-import urllib
-
-def summaryCSV(data):
-    with open('summary.csv','wb') as f:
-        f.write(u'\ufeff'.encode('utf8'))
-        fieldnames = ['name','density']
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows([dict(zip(fieldnames, [k.encode('utf8').strip(), v.encode('utf8').strip()])) for k, v in data.items()])
+import urllib.request, urllib.parse, urllib.error
 
 def removeNano(filler):
     words = filler.lower().split()
@@ -53,7 +46,7 @@ def removeDescription(filler):
 
 def getFillerDensityGoogle(filler):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36'}
-    query = urllib.quote(removeDescription(removeNano(filler)) + " density")
+    query = urllib.parse.quote(removeDescription(removeNano(filler)) + " density")
     r = requests.get('https://www.google.com/search?q='+query, headers=headers)
     stdname = ''
     soup = BeautifulSoup(r.text, 'lxml')
@@ -62,7 +55,7 @@ def getFillerDensityGoogle(filler):
         return (stdname, -1)
     name = snippet.find('span', class_='GzssTd')
     if name is not None and name.span is not None:
-        stdname = re.sub(r'[^\x00-\x7F]+','',name.span.text).decode('utf-8','ignore').strip()
+        stdname = re.sub(r'[^\x00-\x7F]+','',name.span.text).strip()
     result = snippet.find('div', class_='Z0LcW')
     if result is None:
         bs = snippet.find_all('b')
@@ -71,7 +64,7 @@ def getFillerDensityGoogle(filler):
                 stdname = removeDescription(removeNano(filler)).lower().capitalize()
                 return (stdname, b.text)
         return (stdname, -1)
-    clean_result = re.sub(r'[^\x00-\x7F]+','',result.text).decode('utf-8','ignore').strip()
+    clean_result = re.sub(r'[^\x00-\x7F]+','',result.text).strip()
     clean_result = unitAdjust(clean_result)
     # use capitalized filler as stdname if google don't have one
     if stdname == '':

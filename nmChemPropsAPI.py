@@ -8,6 +8,8 @@ import logging
 import re # for query reformat
 import string # for query reformat
 import fillerDensityModule as fDM # filler density module
+from SMILEStrans import SMILEStrans # uSMILES translation module
+from fillerDensityModule import removeNano # remove words like nanoparticles
 
 class nmChemPropsAPI():
     def __init__(self, nmid):
@@ -64,7 +66,7 @@ class nmChemPropsAPI():
     
     # the main search function for polymer infos
     # will call six sub-methods for mapping, wf stands for weighting factor
-    # 0) apple to apple comparison for uSMILES (already translated by SMILEStrans), wf 5
+    # 0) apple to apple comparison for uSMILES (translate here by SMILEStrans), wf 5
     # 1) apple to apple comparison for polymer names (in _stdname, _abbreviations, _synonyms), wf 3
     # 2) apple to apple/boc comparison for abbreviations (in _abbreviations), wf 2+1
     # 3) relaxed bag-of-word comparison for tradenames (in _tradenames), wf 1
@@ -89,15 +91,21 @@ class nmChemPropsAPI():
         rptabbr = ''
         rpttrad = ''
         candidates = dict() # use '_id' as keys
-        # 0) apple to apple comparison for uSMILES (already translated by SMILEStrans), wf 5
+        # 0) apple to apple comparison for uSMILES (translate here by SMILEStrans), wf 5
         if 'uSMILES' in keywords:
             rptuSMILES = keywords['uSMILES']
+            try:
+                sTr = SMILEStrans(keywords['uSMILES'])
+                rptuSMILES = sTr.translate()
+            except:
+                logging.warning("Error occurred during the SMILEStrans call for uSMILES: %s" %(keywords['uSMILES']))
+                pass
             for cand in self.cp.polymer.find({'_id': {'$regex': rptuSMILES, '$options': 'i'}}):
                 if cand['_id'] not in candidates:
                     candidates[cand['_id']] = {'data': cand, 'wf': 0}
                 candidates[cand['_id']]['wf'] += 5
         # 1) apple to apple comparison for polymer names (in _stdname, _abbreviations, _synonyms), wf 3
-        rptname = keywords['ChemicalName']
+        rptname = keywords['ChemicalName'].replace('-','\-').replace('(','\\(').replace(')','\\)')
         # query for '_stdname' with rptname
         for cand in self.cp.polymer.find({'_stdname': {'$regex': rptname, '$options': 'i'}}):
             if cand['_id'] not in candidates:
@@ -115,7 +123,7 @@ class nmChemPropsAPI():
             candidates[cand['_id']]['wf'] += 3
         # 2) apple to apple comparison for abbreviations (in _abbreviations), wf 2+1
         if 'Abbreviation' in keywords:
-            rptabbr = keywords['Abbreviation']
+            rptabbr = keywords['Abbreviation'].replace('-','\-').replace('(','\\(').replace(')','\\)')
             # query for '_abbreviations' array, wf 2
             for cand in self.cp.polymer.find({'_abbreviations': {'$regex': rptabbr, '$options': 'i'}}):
                 if cand['_id'] not in candidates:
@@ -129,7 +137,7 @@ class nmChemPropsAPI():
                 candidates[cand['_id']]['wf'] += 1  
         # 3) relaxed bag-of-word comparison for tradenames (in _tradenames), wf 1
         if 'TradeName' in keywords:
-            rpttrad = keywords['TradeName']
+            rpttrad = keywords['TradeName'].replace('-','\-').replace('(','\\(').replace(')','\\)')
             # query for '_tradenames' array
             relBOW = self.containAllWords(rpttrad, '_tradenames', self.cp.polymer)
             for cand in relBOW:
@@ -317,13 +325,21 @@ class nmChemPropsAPI():
         rptname = ''
         candidates = dict() # use '_id' as keys
         # 0) apple to apple comparison for filler names (in _id, _alias), wf 3
-        rptname = keywords['ChemicalName']
+        rptname = removeNano(keywords['ChemicalName'].replace('-','\-').replace('(','\\(').replace(')','\\)'))
         # query for '_id' with rptname
+        for cand in self.cp.filler.find({'_id': {'$regex': '^'+rptname+'$', '$options': 'i'}}):
+            if cand['_id'] not in candidates:
+                candidates[cand['_id']] = {'data': cand, 'wf': 0}
+            candidates[cand['_id']]['wf'] += 4
         for cand in self.cp.filler.find({'_id': {'$regex': rptname, '$options': 'i'}}):
             if cand['_id'] not in candidates:
                 candidates[cand['_id']] = {'data': cand, 'wf': 0}
             candidates[cand['_id']]['wf'] += 3
         # query for '_alias' array
+        for cand in self.cp.filler.find({'_alias': {'$regex': '^'+rptname+'$', '$options': 'i'}}):
+            if cand['_id'] not in candidates:
+                candidates[cand['_id']] = {'data': cand, 'wf': 0}
+            candidates[cand['_id']]['wf'] += 4
         for cand in self.cp.filler.find({'_alias': {'$regex': rptname, '$options': 'i'}}):
             if cand['_id'] not in candidates:
                 candidates[cand['_id']] = {'data': cand, 'wf': 0}
