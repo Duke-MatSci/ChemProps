@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # 06/04/2019 Bingyin Hu
-
+# 05/14/2020 Bingyin Hu updateMongoDB fn updated
 import requests
 import xlrd
 from pymongo import MongoClient
@@ -157,145 +157,165 @@ class nmChemPropsPrepare():
 
     # update MongoDB
     def updateMongoDB(self):
-        initPolymer = False # a flag inidicating whether this is the first time creating the ChemProps.polymer collection
-        initFiller = False # a flag inidicating whether this is the first time creating the ChemProps.filler collection
-        if 'NM_MONGO_CHEMPROPS_URI' not in self.env :
-          dbnames = self.client.list_database_names() # check if db exists (not strictly necessary.
-                                                      # checking for collections within db is sufficient and does not require
-                                                      # special privileges.
-          if 'ChemProps' not in dbnames:
-            initPolymer = True
-            initFiller = True
+        # initPolymer = False # a flag inidicating whether this is the first time creating the ChemProps.polymer collection
+        # initFiller = False # a flag inidicating whether this is the first time creating the ChemProps.filler collection
+        # if 'NM_MONGO_CHEMPROPS_URI' not in self.env :
+        #     dbnames = self.client.list_database_names() # check if db exists (not strictly necessary.
+        #                                               # checking for collections within db is sufficient and does not require
+        #                                               # special privileges.
+        #     if 'ChemProps' not in dbnames:
+        #         initPolymer = True
+        #         initFiller = True
         cp = self.client.ChemProps
         clctnames = cp.list_collection_names() # check if collection exists
-        # if ChemProps exists
-        if not initPolymer and 'polymer' not in clctnames:
-            initPolymer = True
-        if not initPolymer and 'filler' not in clctnames:
-            initFiller = True
-        ## first creation cases (polymer)
-        if initPolymer:
-            pol = cp.polymer
-            posted_polymer = pol.insert_many(list(self.polymer.values()))
-            logging.info("The polymer collection in the ChemProps DB is created for the first time.")
-        ## update cases (polymer)
-        else:
-            # loop through the items in the self.polymer dict, see if everything matches
-            for uSMILES in self.polymer:
-                gsData = self.polymer[uSMILES] # google spreadsheet data
-                # if MongoDB doesn't have this uSMILES document
-                if cp.polymer.find({"_id": uSMILES}).count() == 0:
-                    # insert it directly
-                    cp.polymer.insert(self.polymer[uSMILES])
-                    logging.info("Insert polymer with uSMILES (_id): %s to ChemProps." %(uSMILES))
-                    continue
-                # otherwise, take the first and only result
-                mgData = cp.polymer.find({"_id": uSMILES})[0] # mongo data, find by _id
-                # continue if there is no difference between gsData and mgData
-                if gsData == mgData:
-                    continue
-                # otherwise, find the difference
-                # if gsData is a superset of mgData, update mgData
-                # if mgData is a superset of gsData, record the difference in self.gsUpdate
-                # the structure of result see compareDict() instruction
-                d1name = 'google sheet'
-                d2name = 'mongo'
-                result = self.compareDict(d1 = gsData,
-                                          d1name = d1name,
-                                          d2 = mgData,
-                                          d2name = d2name,
-                                          imtbKeys = {'_id',
-                                                      '_stdname',
-                                                      '_density'
-                                                     }
-                                         )
-                # required updates for gsData go to self.gsUpdate
-                for change in result['google sheet']:
-                    self.gsUpdate.append(
-                        "%s %s to %s of the polymer with uSMILES: %s."
-                        %(change[0], change[2], change[1], uSMILES))
-                # apply/update the changes
-                for change in result[d2name]:
-                    cp.polymer.update(
-                        {"_id": uSMILES},
-                        {"%s" %(change[0]): { change[1]: change[2]}}
-                    )
-                    logging.info("Apply %s with value %s to %s of the polymer with uSMILES (_id): %s in ChemProps."
-                                 %(change[0], change[2], change[1], uSMILES)
-                                )
-                    # rebuild _boc from ground up as well, "_stdname", "_abbreviations", "_synonyms"
-                    boc = []
-                    document = cp.polymer.find({"_id": uSMILES})[0]
-                    boc.append(self.bagOfChar(document["_stdname"]))
-                    for abb in document["_abbreviations"]:
-                        boc.append(self.bagOfChar(abb))
-                    for syn in document["_synonyms"]:
-                        boc.append(self.bagOfChar(syn))
-                    cp.polymer.update(
-                        {"_id": uSMILES},
-                        {"$set": {"_boc": boc}})
-                    logging.info("_boc updated for the polymer with uSMILES (_id): %s in ChemProps." %(uSMILES))
-            # end of the loop
-        ## first creation cases (filler)
-        if initFiller:
-            fil = cp.filler
-            posted_filler = fil.insert_many(list(self.filler.values()))
-            logging.info("The filler collection in the ChemProps DB is created for the first time.")
-        ## update cases (filler)
-        else:
-            # loop through the items in the self.filler dict, see if everything matches
-            for std_name in self.filler:
-                # same structure as self.polymer
-                gsData = self.filler[std_name]
-                # if MongoDB doesn't have this std_name document
-                if cp.filler.find({"_id": std_name}).count() == 0:
-                    # insert it directly
-                    cp.filler.insert(self.filler[std_name])
-                    logging.info("Insert filler with std_name (_id): %s to ChemProps." %(std_name))
-                    continue
-                # otherwise, take the first and only result
-                mgData = cp.filler.find({"_id": std_name})[0]
-                if gsData == mgData:
-                    continue
-                d1name = 'google sheet'
-                d2name = 'mongo'
-                result = self.compareDict(d1 = gsData,
-                                          d1name = d1name,
-                                          d2 = mgData,
-                                          d2name = d2name,
-                                          imtbKeys = {'_id',
-                                                      '_density'
-                                                     }
-                                         )
-                # required updates for gsData go to self.gsUpdate
-                for change in result['google sheet']:
-                    self.gsUpdate.append(
-                        "%s %s to %s of the filler with std_name: %s."
-                        %(change[0], change[2], change[1], std_name))
-                # apply/update the changes
-                for change in result[d2name]:
-                    cp.filler.update(
-                        {"_id": std_name},
-                        {"%s" %(change[0]): { change[1]: change[2]}}
-                    )
-                    logging.info("Apply %s with value %s to %s of the filler with std_name (_id): %s in ChemProps."
-                                 %(change[0], change[2], change[1], std_name)
-                                )
-                    # rebuild _boc from ground up as well, "_id", "_alias"
-                    boc = []
-                    document = cp.filler.find({"_id": std_name})[0]
-                    boc.append(self.bagOfChar(document["_id"]))
-                    for ali in document["_alias"]:
-                        boc.append(self.bagOfChar(ali))
-                    cp.filler.update(
-                        {"_id": std_name},
-                        {"$set": {"_boc": boc}})
-                    logging.info("_boc updated for the filler with std_name (_id): %s in ChemProps." %(std_name))
-            # end of the loop
-        ## append gsUpdate records as WARNING to the log
-        for rec in self.gsUpdate:
-            logging.warn(rec)
-        self.gsUpdate = [] # reset gsUpdate
+        if 'polymer' in clctnames:
+            cp.polymer.drop()
+            logging.info("The polymer collection in the ChemProps DB is dropped.")
+        if 'filler' in clctnames:
+            cp.filler.drop()
+            logging.info("The filler collection in the ChemProps DB is dropped.")
+        # create polymer
+        pol = cp.polymer
+        posted_polymer = pol.insert_many(list(self.polymer.values()))
+        logging.info("The polymer collection in the ChemProps DB is created for the first time.")
+        # create filler
+        fil = cp.filler
+        posted_filler = fil.insert_many(list(self.filler.values()))
+        logging.info("The filler collection in the ChemProps DB is created for the first time.")
+        ## old way of updating
+        # # if ChemProps exists
+        # if not initPolymer and 'polymer' not in clctnames:
+        #     initPolymer = True
+        # if not initPolymer and 'filler' not in clctnames:
+        #     initFiller = True
+        # ## first creation cases (polymer)
+        # if initPolymer:
+        #     pol = cp.polymer
+        #     posted_polymer = pol.insert_many(list(self.polymer.values()))
+        #     logging.info("The polymer collection in the ChemProps DB is created for the first time.")
+        # ## update cases (polymer)
+        # else: 
+        #     # first loop through the cp.polymer collection, remove documents that no longer exists in self.polymer dict   
+        #     for mgUSMILES in cp.polymer.find().distinct("_id"):   
+        #         if mgUSMILES not in self.polymer: 
+        #             cp.polymer.delete_one({"_id": mgUSMILES}) 
+        #             logging.info("Remove polymer with uSMILES (_id): %s from ChemProps." %(mgUSMILES))
+        #     # loop through the items in the self.polymer dict, see if everything matches
+        #     for uSMILES in self.polymer:
+        #         gsData = self.polymer[uSMILES] # google spreadsheet data
+        #         # if MongoDB doesn't have this uSMILES document
+        #         if cp.polymer.find({"_id": uSMILES}).count() == 0:
+        #             # insert it directly
+        #             cp.polymer.insert(self.polymer[uSMILES])
+        #             logging.info("Insert polymer with uSMILES (_id): %s to ChemProps." %(uSMILES))
+        #             continue
+        #         # otherwise, take the first and only result
+        #         mgData = cp.polymer.find({"_id": uSMILES})[0] # mongo data, find by _id
+        #         # continue if there is no difference between gsData and mgData
+        #         if gsData == mgData:
+        #             continue
+        #         # otherwise, find the difference
+        #         # if gsData is a superset of mgData, update mgData
+        #         # if mgData is a superset of gsData, record the difference in self.gsUpdate
+        #         # the structure of result see compareDict() instruction
+        #         d1name = 'google sheet'
+        #         d2name = 'mongo'
+        #         result = self.compareDict(d1 = gsData,
+        #                                   d1name = d1name,
+        #                                   d2 = mgData,
+        #                                   d2name = d2name,
+        #                                   imtbKeys = {'_id',
+        #                                               '_stdname',
+        #                                               '_density'
+        #                                              }
+        #                                  )
+        #         # required updates for gsData go to self.gsUpdate
+        #         for change in result['google sheet']:
+        #             self.gsUpdate.append(
+        #                 "%s %s to %s of the polymer with uSMILES: %s."
+        #                 %(change[0], change[2], change[1], uSMILES))
+        #         # apply/update the changes
+        #         for change in result[d2name]:
+        #             cp.polymer.update(
+        #                 {"_id": uSMILES},
+        #                 {"%s" %(change[0]): { change[1]: change[2]}}
+        #             )
+        #             logging.info("Apply %s with value %s to %s of the polymer with uSMILES (_id): %s in ChemProps."
+        #                          %(change[0], change[2], change[1], uSMILES)
+        #                         )
+        #             # rebuild _boc from ground up as well, "_stdname", "_abbreviations", "_synonyms"
+        #             boc = []
+        #             document = cp.polymer.find({"_id": uSMILES})[0]
+        #             boc.append(self.bagOfChar(document["_stdname"]))
+        #             for abb in document["_abbreviations"]:
+        #                 boc.append(self.bagOfChar(abb))
+        #             for syn in document["_synonyms"]:
+        #                 boc.append(self.bagOfChar(syn))
+        #             cp.polymer.update(
+        #                 {"_id": uSMILES},
+        #                 {"$set": {"_boc": boc}})
+        #             logging.info("_boc updated for the polymer with uSMILES (_id): %s in ChemProps." %(uSMILES))
+        #     # end of the loop
+        # ## first creation cases (filler)
+        # if initFiller:
+        #     fil = cp.filler
+        #     posted_filler = fil.insert_many(list(self.filler.values()))
+        #     logging.info("The filler collection in the ChemProps DB is created for the first time.")
+        # ## update cases (filler)
+        # else:
+        #     # loop through the items in the self.filler dict, see if everything matches
+        #     for std_name in self.filler:
+        #         # same structure as self.polymer
+        #         gsData = self.filler[std_name]
+        #         # if MongoDB doesn't have this std_name document
+        #         if cp.filler.find({"_id": std_name}).count() == 0:
+        #             # insert it directly
+        #             cp.filler.insert(self.filler[std_name])
+        #             logging.info("Insert filler with std_name (_id): %s to ChemProps." %(std_name))
+        #             continue
+        #         # otherwise, take the first and only result
+        #         mgData = cp.filler.find({"_id": std_name})[0]
+        #         if gsData == mgData:
+        #             continue
+        #         d1name = 'google sheet'
+        #         d2name = 'mongo'
+        #         result = self.compareDict(d1 = gsData,
+        #                                   d1name = d1name,
+        #                                   d2 = mgData,
+        #                                   d2name = d2name,
+        #                                   imtbKeys = {'_id',
+        #                                               '_density'
+        #                                              }
+        #                                  )
+        #         # required updates for gsData go to self.gsUpdate
+        #         for change in result['google sheet']:
+        #             self.gsUpdate.append(
+        #                 "%s %s to %s of the filler with std_name: %s."
+        #                 %(change[0], change[2], change[1], std_name))
+        #         # apply/update the changes
+        #         for change in result[d2name]:
+        #             cp.filler.update(
+        #                 {"_id": std_name},
+        #                 {"%s" %(change[0]): { change[1]: change[2]}}
+        #             )
+        #             logging.info("Apply %s with value %s to %s of the filler with std_name (_id): %s in ChemProps."
+        #                          %(change[0], change[2], change[1], std_name)
+        #                         )
+        #             # rebuild _boc from ground up as well, "_id", "_alias"
+        #             boc = []
+        #             document = cp.filler.find({"_id": std_name})[0]
+        #             boc.append(self.bagOfChar(document["_id"]))
+        #             for ali in document["_alias"]:
+        #                 boc.append(self.bagOfChar(ali))
+        #             cp.filler.update(
+        #                 {"_id": std_name},
+        #                 {"$set": {"_boc": boc}})
+        #             logging.info("_boc updated for the filler with std_name (_id): %s in ChemProps." %(std_name))
+        #     # end of the loop
+        # ## append gsUpdate records as WARNING to the log
+        # for rec in self.gsUpdate:
+        #     logging.warn(rec)
+        # self.gsUpdate = [] # reset gsUpdate
 
     # remove leading and trailing white spaces
     def striplist(self, mylist):
