@@ -127,6 +127,8 @@ class nmChemPropsPrepare():
             # tradenames
             if len(rowdata[hmap['tradenames']]) > 0:
                 self.polymer[rowdata[hmap['uSMILES']]]['_tradenames'] = self.striplist(rowdata[hmap['tradenames']].split(';'))
+                for tra in self.polymer[rowdata[hmap['uSMILES']]]['_tradenames']:
+                    self.polymer[rowdata[hmap['uSMILES']]]['_boc'].append(self.bagOfChar(tra))
         # log
         logging.info("Finish processing the polymer data.")
 
