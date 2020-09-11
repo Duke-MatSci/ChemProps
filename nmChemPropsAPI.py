@@ -125,7 +125,7 @@ class nmChemPropsAPI():
             if len(rptuSMILES) > 0:
                 try:
                     sTr = SMILEStrans(keywords['uSMILES'])
-                    rptuSMILES = sTr.translate()
+                    rptuSMILES = sTr.translate().replace('-','\-').replace('(','\\(').replace(')','\\)').replace('[','\\[').replace(']','\\]')
                 except:
                     logging.warning("Error occurred during the SMILEStrans call for uSMILES: %s" %(keywords['uSMILES']))
                     pass
