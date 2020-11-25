@@ -124,12 +124,11 @@ class nmChemPropsAPI():
             rptuSMILES = keywords['uSMILES']
             if len(rptuSMILES) > 0:
                 try:
-                    sTr = SMILEStrans(keywords['uSMILES'])
-                    rptuSMILES = sTr.translate().replace('-','\-').replace('(','\\(').replace(')','\\)').replace('[','\\[').replace(']','\\]')
+                    rptuSMILES = SMILEStrans(keywords['uSMILES']).translate()
                 except:
                     logging.warning("Error occurred during the SMILEStrans call for uSMILES: %s" %(keywords['uSMILES']))
                     pass
-                for cand in self.cp.polymer.find({'_id': {'$regex': '\\b%s\\b' %(rptuSMILES), '$options': 'i'}}):
+                for cand in self.cp.polymer.find({'_id': rptuSMILES}):
                     if cand['_id'] not in candidates:
                         candidates[cand['_id']] = {'data': cand, 'wf': 0, 'features': []}
                     candidates[cand['_id']]['wf'] += 1.6
