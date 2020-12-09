@@ -45,7 +45,7 @@ class nmChemPropsAPI():
         # logging the top three candidates and accumulated wfs
         self.top3polymers = [[],[],[]]
         self.top3fillers = [[],[],[]]
-        
+
     # load mongo configurations
     def loadMGconfig(self):
         self.env = dict()
@@ -82,7 +82,7 @@ class nmChemPropsAPI():
             print(i)
         print("=================")
         print("Find details in .polymer_wf")
-    
+
     # the main search function for polymer infos
     # will call six sub-methods for mapping, wf stands for weighting factor
     # 00 wf 1.6 apple to apple comparison for uSMILES (translate here by SMILEStrans), wf 5
@@ -134,7 +134,7 @@ class nmChemPropsAPI():
                     candidates[cand['_id']]['wf'] += 1.6
                     candidates[cand['_id']]['features'].append('00')
         # 1) apple to apple comparison for polymer names (in _stdname, _abbreviations, _synonyms), wf 3
-        rptname = keywords['ChemicalName'].replace('-','\-').replace('(','\\(').replace(')','\\)').replace('[','\\[').replace(']','\\]')
+        rptname = re.escape(keywords['ChemicalName'])
         if len(rptname) > 1:
             # query for '_stdname' with rptname
             for cand in self.cp.polymer.find({'_stdname': {'$regex': '\\b%s\\b' %(rptname), '$options': 'i'}}):
@@ -156,7 +156,7 @@ class nmChemPropsAPI():
                 candidates[cand['_id']]['features'].append('12')
         # 2) apple to apple comparison for abbreviations (in _abbreviations), wf 2+1
         if 'Abbreviation' in keywords:
-            rptabbr = keywords['Abbreviation'].replace('-','\-').replace('(','\\(').replace(')','\\)').replace('[','\\[').replace(']','\\]')
+            rptabbr = re.escape(keywords['Abbreviation'])
             if len(rptabbr) > 0:
                 # query for '_abbreviations' array, wf 2
                 for cand in self.cp.polymer.find({'_abbreviations': {'$regex': '\\b%s\\b' %(rptabbr), '$options': 'i'}}):
@@ -236,22 +236,22 @@ class nmChemPropsAPI():
             if len(rpttrad) > 0: ukdict['_inputtrade'].append(rpttrad)
             if len(rptuSMILES) > 0: # if smile reported, see if it's already in unknowns.polymer
                 ukdict['_inputsmiles'] = rptuSMILES
-                if self.cp.ukpolymer.find({"_inputsmiles": {'$regex': '%s' %(rptuSMILES)}}).count() == 0: # if not exist, create the document
+                if self.cp.ukpolymer.find({"_inputsmiles": rptuSMILES}).count() == 0: # if not exist, create the document
                     # insert it directly
                     self.cp.ukpolymer.insert(ukdict)
                     logging.info("Insert unknown polymer with _inputsmiles: '%s' to unknowns." %(rptuSMILES))
                 else:
                     # update the difference
-                    ukdata = self.cp.ukpolymer.find({"_inputsmiles": {'$regex': '%s' %(rptuSMILES)}})[0]
+                    ukdata = self.cp.ukpolymer.find({"_inputsmiles": rptuSMILES})[0]
                     if not self.lowerIn(rptname, ukdata['_inputname']):
                         self.cp.ukpolymer.update(
-                            {"_inputsmiles": {'$regex': '%s' %(rptuSMILES)}},
+                            {"_inputsmiles": rptuSMILES},
                             {"$addToSet": { "_inputname": rptname}}
                         )
                         logging.warn("The document with _inputsmiles: '%s' has multiple _inputname! '%s' is newly added!" %(rptuSMILES, rptname))
                     if len(rptabbr) > 0 and not self.lowerIn(rptabbr, ukdata['_inputabbr']):
                         self.cp.ukpolymer.update(
-                            {"_inputsmiles": {'$regex': '%s' %(rptuSMILES)}},
+                            {"_inputsmiles": rptuSMILES},
                             {"$addToSet": { "_inputabbr": rptabbr}}
                         )
                         logging.info("Apply $addToSet with value '%s' to _inputabbr of the polymer with _inputsmiles: '%s' in unknowns."
@@ -259,7 +259,7 @@ class nmChemPropsAPI():
                                 )
                     if len(rpttrad) > 0 and not self.lowerIn(rpttrad, ukdata['_inputtrade']):
                         self.cp.ukpolymer.update(
-                            {"_inputsmiles": {'$regex': '%s' %(rptuSMILES)}},
+                            {"_inputsmiles": rptuSMILES},
                             {"$addToSet": { "_inputtrade": rpttrad}}
                         )
                         logging.info("Apply $addToSet with value '%s' to _inputtrade of the polymer with _inputsmiles: '%s' in unknowns."
@@ -267,7 +267,7 @@ class nmChemPropsAPI():
                                 )
                     if not self.lowerIn(self.nmid, ukdata['_nmid']):
                         self.cp.ukpolymer.update(
-                            {"_inputsmiles": {'$regex': '%s' %(rptuSMILES)}},
+                            {"_inputsmiles": rptuSMILES},
                             {"$addToSet": { "_nmid": self.nmid}}
                         )
                         logging.info("Apply $addToSet with value '%s' to _nmid of the polymer with _inputsmiles: '%s' in unknowns."
@@ -383,7 +383,7 @@ class nmChemPropsAPI():
         rptname = ''
         candidates = dict() # use '_id' as keys
         # 0) apple to apple comparison for filler names (in _id, _alias), wf 3
-        rptname = removeNano(keywords['ChemicalName'].replace('-','\-').replace('(','\\(').replace(')','\\)').replace('[','\\[').replace(']','\\]'))
+        rptname = re.escape(removeNano(keywords['ChemicalName']))
         if len(rptname) > 0:
             # query for '_id' with rptname
             for cand in self.cp.filler.find({'_id': {'$regex': '^'+rptname+'$', '$options': 'i'}}):
@@ -429,7 +429,7 @@ class nmChemPropsAPI():
                 candidates[cand['_id']]['wf'] += 1
         # 3) apple to apple comparison for abbreviations (in _id, _alias), wf 2+1
         if 'Abbreviation' in keywords and len(keywords['Abbreviation']) > 0:
-            rptabbr = keywords['Abbreviation'].replace('-','\-').replace('(','\\(').replace(')','\\)').replace('[','\\[').replace(']','\\]')
+            rptabbr = re.escape(keywords['Abbreviation'])
             if len(rptabbr) > 0:
                 # query for '_id' array, wf 2
                 for cand in self.cp.filler.find({'_id': {'$regex': '^'+rptabbr+'$', '$options': 'i'}}):

@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 class SMILEStrans(object):
     def __init__(self, smiles = ''):
         self.br = mechanicalsoup.StatefulBrowser(user_agent='Mozilla/5.0')
-        self.br.open('https://cactus.nci.nih.gov/translate/index.html#Form')
+        self.br.open('https://cactus.nci.nih.gov/translate/index.html#Form',verify=False)
         self.SMILES = smiles
         self.brtxt = None
         self.trans = ''
