@@ -98,9 +98,9 @@ class nmChemPropsAPI():
     # 50 wf 1.0 relaxed bag-of-word comparison for '_stdname' with rptname
     # 51 wf 2.0 relaxed bag-of-word comparison for '_synonyms' with rptname
     # input format:
-    #   {'ChemicalName': 'Poly(styrene)', 'Abbreviation': 'PS', 'TradeName': 'Dylite', 'uSMILES': ''}
+    #   {'ChemicalName': 'Poly(styrene)', 'Abbreviation': 'PS', 'TradeName': 'Dylite', 'SMILES': ''}
     #   NanoMine schema guarantees 'ChemicalName' has minimum occurrence of 1
-    #   'Abbreviation', 'TradeName', and 'uSMILES' are not required, since users might leave them blank
+    #   'Abbreviation', 'TradeName', and 'SMILES' are not required, since users might leave them blank
     # output format:
     # if there is a match:
     #   {'StandardName': _stdname, 'uSMILES': _id, 'density': _density}
@@ -119,14 +119,14 @@ class nmChemPropsAPI():
         rptabbr = ''
         rpttrad = ''
         candidates = dict() # use '_id' as keys
-        # 0) apple to apple comparison for uSMILES (translate here by SMILEStrans), wf 5
-        if 'uSMILES' in keywords:
-            rptuSMILES = keywords['uSMILES']
+        # 0) apple to apple comparison for uSMILES (translated here from SMILES by SMILEStrans), wf 5
+        if 'SMILES' in keywords:
+            rptuSMILES = keywords['SMILES']
             if len(rptuSMILES) > 0:
                 try:
-                    rptuSMILES = SMILEStrans(keywords['uSMILES']).translate()
+                    rptuSMILES = SMILEStrans(keywords['SMILES']).translate()
                 except:
-                    logging.warning("Error occurred during the SMILEStrans call for uSMILES: %s" %(keywords['uSMILES']))
+                    logging.warning("Error occurred during the SMILEStrans call for SMILES: %s" %(keywords['SMILES']))
                     pass
                 for cand in self.cp.polymer.find({'_id': rptuSMILES}):
                     if cand['_id'] not in candidates:

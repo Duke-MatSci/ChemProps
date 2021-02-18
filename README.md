@@ -19,6 +19,14 @@ Required packages:
   - https://pypi.org/project/pymongo/
   - MongoDB API.
 
+- MechanicalSoup
+  - https://mechanicalsoup.readthedocs.io/en/stable/index.html
+  - For SMILES translation.
+
+- beautifulsoup4
+  - https://pypi.org/project/beautifulsoup4/
+  - For SMILES translation.
+
 - logging
   - Python default package
 
@@ -26,6 +34,9 @@ Open the command or terminal and run
 ```
 pip install -r requirements.txt
 ```
+
+**Python 3 must be 3.6 and later release to run SMILES translation flawlessly**
+
 ### 2. How to run
 
 1. Note this script is tailored to the NanoMine workflow. It starts from getting data from a google spreadsheet all the way to updating the MongoDB.
