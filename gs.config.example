@@ -1,4 +1,4 @@
-https://spreadsheets.google.com/feeds/download/spreadsheets/Export?key=%s&exportFormat=%s&gid=%i
+https://spreadsheets.google.com/feeds/download/spreadsheets/Export?key={}&exportFormat={}&gid={}
 1PZtqi4KuaZ9ChlTFcL3euQZEYNP1vWqKDuuexp_Ea-w
 matrixRaw: 0
 fillerRaw: 455334053

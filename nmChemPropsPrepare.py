@@ -77,10 +77,10 @@ class nmChemPropsPrepare():
     # download google spreadsheets
     def downloadGS(self):
         for fname in self.gids:
-            resp = requests.get(self.url_format %(self.key,
-                                                  self.format,
-                                                  self.gids[fname]
-                                                 )
+            resp = requests.get(self.url_format.format(self.key,
+                                                       self.format,
+                                                       self.gids[fname]
+                                                      )
                                )
             with open(fname + ".xlsx", "wb") as f:
                 f.write(resp.content)
